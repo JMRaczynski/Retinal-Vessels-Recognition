@@ -8,7 +8,7 @@
 
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-
+from skimage import io, exposure, filters, color, transform, morphology
 
 class Ui_mainWindow(object):
     def setupUi(self, mainWindow):
@@ -59,6 +59,9 @@ class Ui_mainWindow(object):
         self.statusbar.setObjectName("statusbar")
         mainWindow.setStatusBar(self.statusbar)
         self.chooseImageButton.clicked.connect(self.setImage)
+        self.startButton.clicked.connect(self.processImage)
+        self.resultPath = None
+        self.simpleProcessingRadioButton.setChecked(True)
 
         self.retranslateUi(mainWindow)
         QtCore.QMetaObject.connectSlotsByName(mainWindow)
@@ -83,6 +86,28 @@ class Ui_mainWindow(object):
             pixmap = pixmap.scaled(self.inputImageFrame.width(), self.inputImageFrame.height(), QtCore.Qt.KeepAspectRatio)
             self.inputImageFrame.setPixmap(pixmap)
             self.inputImageFrame.setAlignment(QtCore.Qt.AlignCenter)
+
+    def showResultingImage(self):
+        img = QtGui.QImage(self.resultPath)
+        pixmap = QtGui.QPixmap(img)
+        pixmap = pixmap.scaled(self.outputImageFrame.width(), self.outputImageFrame.height(), QtCore.Qt.KeepAspectRatio)
+        self.outputImageFrame.setPixmap(pixmap)
+        self.outputImageFrame.setAlignment(QtCore.Qt.AlignLeft)
+
+    def processImage(self):
+        if self.simpleProcessingRadioButton.isChecked():
+            self.simpleProcessing()
+        else:
+            self.advancedProcessing()
+
+    def simpleProcessing(self):
+        img = io.imread(self.imagePath)
+        self.resultPath = self.imagePath
+        self.showResultingImage()
+
+    def advancedProcessing(self):
+        pass
+
 
 def except_hook(cls, exception, traceback):
     sys.__excepthook__(cls, exception, traceback)
