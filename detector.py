@@ -8,7 +8,10 @@
 
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from skimage import io, exposure, filters, color, transform, morphology
+from skimage import io, exposure, feature, filters, color, transform, morphology, img_as_float
+from scipy import ndimage as ndi
+import numpy as np
+import cv2 as cv
 
 class Ui_mainWindow(object):
     def setupUi(self, mainWindow):
@@ -92,7 +95,7 @@ class Ui_mainWindow(object):
         pixmap = QtGui.QPixmap(img)
         pixmap = pixmap.scaled(self.outputImageFrame.width(), self.outputImageFrame.height(), QtCore.Qt.KeepAspectRatio)
         self.outputImageFrame.setPixmap(pixmap)
-        self.outputImageFrame.setAlignment(QtCore.Qt.AlignLeft)
+        self.outputImageFrame.setAlignment(QtCore.Qt.AlignCenter)
 
     def processImage(self):
         if self.simpleProcessingRadioButton.isChecked():
@@ -101,8 +104,36 @@ class Ui_mainWindow(object):
             self.advancedProcessing()
 
     def simpleProcessing(self):
-        img = io.imread(self.imagePath)
-        self.resultPath = self.imagePath
+        newImg = io.imread(self.imagePath)
+        newImg[:,:,0] = 0
+        newImg[:,:,2] = 0
+        newImg = color.rgb2gray(newImg)
+
+        newImg = exposure.equalize_adapthist(newImg)
+        newImg = exposure.equalize_adapthist(newImg, (50, 50))
+        newImg = exposure.equalize_adapthist(newImg, (300, 300))
+        newImg = exposure.equalize_adapthist(newImg, (150, 150))
+        #newImg = filters.unsharp_mask(newImg, radius=10, amount=1)
+        newImg = 1 - newImg
+        for i in range(len(newImg)):
+            for j in range(len(newImg[0])):
+                if (((i - 477) ** 2) + ((j - 494) ** 2)) ** 0.5 > 455:
+                    newImg[i][j] = 0
+                #if newImg[i][j] < 0.1:
+                    #newImg[i][j] = 0
+        #newImg = filters.gaussian(newImg, sigma=3)
+        #newImg = exposure.rescale_intensity(img, out_range=(0, 1))
+        #newImg = newImg > 0.75
+        #newImg = filters.sobel(newImg)
+        #newImg = newImg > 0.01
+        #newImg = feature.canny(newImg, 3)
+        #newImg = filters.gaussian(newImg, sigma=1.5)
+        #newImg = newImg > 0.25
+        #newImg = ndi.binary_fill_holes(newImg)
+        #newImg = ndi.binary_fill_holes(newImg)
+        self.resultPath = "result.png"
+        newImg = img_as_float(newImg)
+        io.imsave(self.resultPath, newImg)
         self.showResultingImage()
 
     def advancedProcessing(self):
