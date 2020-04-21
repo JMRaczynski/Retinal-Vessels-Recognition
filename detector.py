@@ -8,12 +8,17 @@
 
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from skimage import io, exposure, feature, filters, color, transform, morphology, img_as_float
+from skimage import io, exposure, feature, filters, color, transform, morphology, img_as_float, img_as_bool
 from scipy import ndimage as ndi
 import numpy as np
 import cv2 as cv
 
 class Ui_mainWindow(object):
+    def __init__(self):
+        self.IMAGE_WIDTH = 999
+        self.IMAGE_HEIGHT = 960
+        self.NUM_OF_PIXELS = self.IMAGE_HEIGHT * self.IMAGE_WIDTH
+
     def setupUi(self, mainWindow):
         mainWindow.setObjectName("mainWindow")
         mainWindow.resize(800, 600)
@@ -105,44 +110,83 @@ class Ui_mainWindow(object):
 
     def simpleProcessing(self):
         newImg = io.imread(self.imagePath)
-        newImg[:,:,0] = 0
+
+        newImg[:,:,0] = 0 # PREPROCESSING
         newImg[:,:,2] = 0
         newImg = color.rgb2gray(newImg)
-
         newImg = exposure.equalize_adapthist(newImg)
         newImg = exposure.equalize_adapthist(newImg, (50, 50))
         newImg = exposure.equalize_adapthist(newImg, (300, 300))
         newImg = exposure.equalize_adapthist(newImg, (150, 150))
+        #newImg = morphology.erosion(newImg)
         #newImg = filters.unsharp_mask(newImg, radius=10, amount=1)
         newImg = 1 - newImg
-        for i in range(len(newImg)):
-            for j in range(len(newImg[0])):
-                if (((i - 477) ** 2) + ((j - 494) ** 2)) ** 0.5 > 455:
-                    newImg[i][j] = 0
-                #if newImg[i][j] < 0.1:
-                    #newImg[i][j] = 0
-        #newImg = filters.gaussian(newImg, sigma=3)
+
         #newImg = exposure.rescale_intensity(img, out_range=(0, 1))
-        #newImg = newImg > 0.75
-        #newImg = filters.sobel(newImg)
-        #newImg = newImg > 0.01
-        #newImg = feature.canny(newImg, 3)
-        #newImg = filters.gaussian(newImg, sigma=1.5)
-        #newImg = newImg > 0.25
         #newImg = ndi.binary_fill_holes(newImg)
-        #newImg = ndi.binary_fill_holes(newImg)
+        #newImg = newImg > filters.threshold_local(newImg, 99)
+        #morphology.remove_small_objects(newImg, 250)
+        newImg = filters.gaussian(newImg, sigma=3)
+        newImg = newImg > filters.threshold_local(newImg, 21, method='generic', param=self.calc)
+        newImg = morphology.remove_small_objects(newImg, 700)
+        for i in range(len(newImg)):  # USUWANIE OBRĘCZY
+            for j in range(len(newImg[0])):
+                if (((i - 477) ** 2) + ((j - 494) ** 2)) ** 0.5 > 440:
+                    newImg[i][j] = 0
+
+        """newImg = filters.gaussian(newImg, sigma=3)
+        newImg = filters.sobel(newImg)   # całkiem niezły wynik
+        newImg = newImg > 0.045
+        newImg = morphology.remove_small_objects(newImg, 250)"""
+
         self.resultPath = "result.png"
         newImg = img_as_float(newImg)
         io.imsave(self.resultPath, newImg)
         self.showResultingImage()
+        self.analyzeResults(newImg)
 
     def advancedProcessing(self):
         pass
 
+    def analyzeResults(self, result):
+        expertMask = io.imread(self.imagePath[:-4] + "_1stHO.png")
+        expertMask = img_as_float(expertMask)
+        mistakeMatrix = np.zeros((self.IMAGE_WIDTH, self.IMAGE_HEIGHT, 3))
+        truePositive = trueNegative = falsePositive = falseNegative = positive = negative = 0
+        for i in range(self.IMAGE_HEIGHT):
+            for j in range(self.IMAGE_WIDTH):
+                if expertMask[i][j] == 0:
+                    negative += 1
+                    if result[i][j] == 0:
+                        trueNegative += 1
+                    else:
+                        falsePositive += 1
+                        mistakeMatrix[i][j][1] = 1
+                else:
+                    positive += 1
+                    if result[i][j] == 0:
+                        falseNegative += 1
+                        mistakeMatrix[i][j][0] = 1
+                    else:
+                        truePositive += 1
+                        mistakeMatrix[i][j] = 1
+        print(positive, negative, truePositive, trueNegative, falseNegative, falsePositive)
+        accuracy = (truePositive + trueNegative) / self.NUM_OF_PIXELS
+        sensitivity = truePositive / positive
+        specificity = trueNegative / negative
+        io.imsave("mistakes.png", mistakeMatrix)
+        print("ACCURACY : " + str(accuracy) + "\nSENSITIVITY: " + str(sensitivity) + "\nSPECIFICITY: " + str(specificity))
+
+    def calc(self, chunk):
+        result = np.sum(chunk) / len(chunk)
+        if result < 0.5:
+            return result * 1.25
+        else:
+            return result + 0.05
+
 
 def except_hook(cls, exception, traceback):
     sys.__excepthook__(cls, exception, traceback)
-
 
 
 if __name__ == "__main__":
