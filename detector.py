@@ -18,21 +18,18 @@ from PIL import Image, ImageStat
 
 def classify(filename, classifier, pixelPerCell):
     image = np.array(Image.open(filename))
-    gamma=1.8# Gamma < 1 ~ Dark ; Gamma > 1 ~ Bright
-    image=((image/255)**(1/gamma))
-    # print(image)
     classified = np.full((image.shape[0], image.shape[1]), False)
     margin = pixelPerCell - pixelPerCell // 2
     translation = pixelPerCell // 2
     dataGrey = image[:, :, :]
-    #dataGrey[:, :, 0] = 0  # PREPROCESSING
+    dataGrey[:, :, 0] = 0  # PREPROCESSING
     dataGrey[:, :, 2] = 0
     dataGrey = color.rgb2gray(dataGrey)
     dataGrey = exposure.equalize_adapthist(dataGrey)
     dataGrey = exposure.equalize_adapthist(dataGrey, (50, 50))
     dataGrey = exposure.equalize_adapthist(dataGrey, (300, 300))
     dataGrey = exposure.equalize_adapthist(dataGrey, (150, 150))
-    dataGrey = np.where((1 - dataGrey) < 100/255, 1, dataGrey + 100/255)
+    dataGrey = np.where((1 - dataGrey) < 80/255, 1, dataGrey + 80/255)
     #dataGrey = filters.gaussian(dataGrey, sigma=2)
     # print(dataIm.shape, maskIm.shape)\n",
     for i in range(margin, image.shape[0] - margin - 1):
@@ -40,38 +37,16 @@ def classify(filename, classifier, pixelPerCell):
             if (((i - 477) ** 2) + ((j - 494) ** 2)) ** 0.5 > 450:
                 classified[i][j] = False
             else:
-                subData = []  # tablica na parametry obliczone dla komórki
-                # ***skopiowanie fragmentu obrazu
-                #print(i, j, i-translation, i+translation+1, j-translation, j+translation+1)
+                subData = []
                 subImage = image[i - translation:i + translation + 1, j - translation:j + translation + 1, :]
-                # print(subImage)
-                # ***obliczanie wariancji kolorów:
-                varianceR = ndimage.measurements.variance(subImage[:, :, 0])
                 varianceG = ndimage.measurements.variance(subImage[:, :, 1])
-                subData.append(varianceR)
+                subData.append((image[i][j][0] + image[i][j][1] + image[i][j][2]) / 3)
                 subData.append(varianceG)
-                #varianceB = ndimage.measurements.variance(subImage[:, :, 2])
-                #subData.extend((varianceR, varianceG, varianceB))
-                #subData.append(np.mean(subImage))
-                #stat = ImageStat.Stat(Image.fromarray(subImage).convert('L'))
-                #subData.append(stat.mean[0])
-                # ***zamiana na skalę szarości
-                # subImage = color.rgb2gray(subImage)
                 subImage = dataGrey[i - translation:i + translation + 1, j - translation:j + translation + 1]
                 # ***obliczanie momentów Hu
                 moments = cv2.moments(subImage)
                 huMoments = cv2.HuMoments(moments)
-                # print(moments)
-                # print(huMoments)
-                #cy, cx = ndimage.center_of_mass(subImage)
-                #subData.extend((cy, cx))
-                #for m in huMoments:
-                #    subData.append(m[0])
                 subData.extend((huMoments[0][0], huMoments[3][0], huMoments[6][0]))
-                    # print(subData)
-                # ***predykcja
-                # if classifier.predict([subData]):
-                # print(i, j)
                 classified[i][j] = classifier.predict([subData])
     print(np.count_nonzero(image))
     print(np.count_nonzero(classified))
@@ -153,7 +128,7 @@ class Ui_mainWindow(object):
 
     def setImage(self):
         self.imagePath, _ = QtWidgets.QFileDialog.getOpenFileName(None, "Wybierz obraz", "",
-                                    "Image Files (*.png *.jpg *.jpeg *.bmp);; Dicom Files (*.dcm)")
+                                    "Image Files (*.png *.jpg *.jpeg *.bmp)")
         if self.imagePath:
             pixmap = QtGui.QPixmap(self.imagePath)
             pixmap = pixmap.scaled(self.inputImageFrame.width(), self.inputImageFrame.height(), QtCore.Qt.KeepAspectRatio)
@@ -212,7 +187,7 @@ class Ui_mainWindow(object):
 
 
     def advancedProcessing(self):
-        tree_model = joblib.load("drzewko.pkl")
+        tree_model = joblib.load("drzewko500.pkl")
         pixelPerCell = 9
         newImg = classify(self.imagePath, tree_model, pixelPerCell)
         self.resultPath = "result.png"
