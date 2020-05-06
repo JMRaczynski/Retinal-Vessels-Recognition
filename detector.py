@@ -42,11 +42,17 @@ def classify(filename, classifier, pixelPerCell):
                 varianceG = ndimage.measurements.variance(subImage[:, :, 1])
                 subData.append((image[i][j][0] + image[i][j][1] + image[i][j][2]) / 3)
                 subData.append(varianceG)
+                #subData.append(np.std(subImage[:, :, 1]))
+                #subData.append(np.sum(subImage) / np.size(subImage))
                 subImage = dataGrey[i - translation:i + translation + 1, j - translation:j + translation + 1]
+                #cy, cx = ndimage.center_of_mass(subImage)
+                #subData.extend((cy, cx))
+                subData.append(np.mean(subImage))
+                #subData.append(np.max(subImage))
                 # ***obliczanie momentów Hu
-                moments = cv2.moments(subImage)
-                huMoments = cv2.HuMoments(moments)
-                subData.extend((huMoments[0][0], huMoments[3][0], huMoments[6][0]))
+                #moments = cv2.moments(subImage)
+                #huMoments = cv2.HuMoments(moments)
+                #subData.extend((huMoments[0][0], huMoments[3][0]))
                 classified[i][j] = classifier.predict([subData])
     print(np.count_nonzero(image))
     print(np.count_nonzero(classified))
@@ -187,9 +193,10 @@ class Ui_mainWindow(object):
 
 
     def advancedProcessing(self):
-        tree_model = joblib.load("drzewko500.pkl")
+        tree_model = joblib.load("drzewko12.pkl")
         pixelPerCell = 9
         newImg = classify(self.imagePath, tree_model, pixelPerCell)
+        newImg = morphology.remove_small_objects(newImg, 250)
         self.resultPath = "result.png"
         newImg = img_as_float(newImg)
         io.imsave(self.resultPath, newImg)
