@@ -29,9 +29,6 @@ def classify(filename, classifier, pixelPerCell):
     dataGrey = exposure.equalize_adapthist(dataGrey, (50, 50))
     dataGrey = exposure.equalize_adapthist(dataGrey, (300, 300))
     dataGrey = exposure.equalize_adapthist(dataGrey, (150, 150))
-    dataGrey = np.where((1 - dataGrey) < 80/255, 1, dataGrey + 80/255)
-    #dataGrey = filters.gaussian(dataGrey, sigma=2)
-    # print(dataIm.shape, maskIm.shape)\n",
     for i in range(margin, image.shape[0] - margin - 1):
         for j in range(margin, image.shape[1] - margin - 1):
             if (((i - 477) ** 2) + ((j - 494) ** 2)) ** 0.5 > 450:
@@ -42,17 +39,8 @@ def classify(filename, classifier, pixelPerCell):
                 varianceG = ndimage.measurements.variance(subImage[:, :, 1])
                 subData.append((image[i][j][0] + image[i][j][1] + image[i][j][2]) / 3)
                 subData.append(varianceG)
-                #subData.append(np.std(subImage[:, :, 1]))
-                #subData.append(np.sum(subImage) / np.size(subImage))
                 subImage = dataGrey[i - translation:i + translation + 1, j - translation:j + translation + 1]
-                #cy, cx = ndimage.center_of_mass(subImage)
-                #subData.extend((cy, cx))
-                subData.append(np.mean(subImage))
-                #subData.append(np.max(subImage))
-                # ***obliczanie momentów Hu
-                #moments = cv2.moments(subImage)
-                #huMoments = cv2.HuMoments(moments)
-                #subData.extend((huMoments[0][0], huMoments[3][0]))
+                subData.append(np.sum(subImage) / np.size(subImage))
                 classified[i][j] = classifier.predict([subData])
     print(np.count_nonzero(image))
     print(np.count_nonzero(classified))
@@ -164,14 +152,7 @@ class Ui_mainWindow(object):
         newImg = exposure.equalize_adapthist(newImg, (50, 50))
         newImg = exposure.equalize_adapthist(newImg, (300, 300))
         newImg = exposure.equalize_adapthist(newImg, (150, 150))
-        #newImg = morphology.erosion(newImg)
-        #newImg = filters.unsharp_mask(newImg, radius=10, amount=1)
         newImg = 1 - newImg
-
-        #newImg = exposure.rescale_intensity(img, out_range=(0, 1))
-        #newImg = ndi.binary_fill_holes(newImg)
-        #newImg = newImg > filters.threshold_local(newImg, 99)
-        #morphology.remove_small_objects(newImg, 250)
         newImg = filters.gaussian(newImg, sigma=3)
         newImg = newImg > filters.threshold_local(newImg, 21, method='generic', param=self.calc)
         newImg = morphology.remove_small_objects(newImg, 700)
@@ -179,11 +160,6 @@ class Ui_mainWindow(object):
             for j in range(len(newImg[0])):
                 if (((i - 477) ** 2) + ((j - 494) ** 2)) ** 0.5 > 440:
                     newImg[i][j] = 0
-
-        """newImg = filters.gaussian(newImg, sigma=3)
-        newImg = filters.sobel(newImg)   # całkiem niezły wynik
-        newImg = newImg > 0.045
-        newImg = morphology.remove_small_objects(newImg, 250)"""
 
         self.resultPath = "result.png"
         newImg = img_as_float(newImg)
@@ -193,10 +169,9 @@ class Ui_mainWindow(object):
 
 
     def advancedProcessing(self):
-        tree_model = joblib.load("drzewko12.pkl")
+        tree_model = joblib.load("drzewko.pkl")
         pixelPerCell = 9
         newImg = classify(self.imagePath, tree_model, pixelPerCell)
-        newImg = morphology.remove_small_objects(newImg, 250)
         self.resultPath = "result.png"
         newImg = img_as_float(newImg)
         io.imsave(self.resultPath, newImg)
@@ -207,7 +182,7 @@ class Ui_mainWindow(object):
     def analyzeResults(self, result):
         expertMask = io.imread(self.imagePath[:-4] + "_1stHO.png")
         expertMask = img_as_float(expertMask)
-        mistakeMatrix = np.zeros((self.IMAGE_WIDTH, self.IMAGE_HEIGHT, 3))
+        mistakeMatrix = np.zeros((self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 3))
         truePositive = trueNegative = falsePositive = falseNegative = positive = negative = 0
         for i in range(self.IMAGE_HEIGHT):
             for j in range(self.IMAGE_WIDTH):
