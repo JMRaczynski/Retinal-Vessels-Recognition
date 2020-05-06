@@ -44,8 +44,7 @@ def addImage(dataFilename, maskFilename, pixelPerCell):
         varianceG = ndimage.measurements.variance(subImage[:, :, 1])
         subData.append((dataIm[i][j][0]+dataIm[i][j][1] + dataIm[i][j][2])/3)
         subData.append(varianceG)
-        #***PREPROCESSING
-        subImage = dataGrey[i-pixelPerCell*2:i+pixelPerCell*2+1,j-pixelPerCell*2:j+pixelPerCell*2+1]
+        subImage = dataGrey[i - translation:i + translation + 1, j - translation:j + translation + 1]
         # ***obliczanie momentów Hu
         subData.append(np.sum(subImage) / np.size(subImage))
         # #***zapisanie zgromadzonych danych\n",
